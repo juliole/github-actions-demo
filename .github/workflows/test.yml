@@ -1,0 +1,50 @@
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+name: Build and test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [10.x, 12.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          lfs: true
+
+      - name: Setup Node ${{ matrix.node-version }} Environment
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Get cache directory
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+        id: npm-cache
+
+      - name: Setup cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: npm-${{ matrix.node-version }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ matrix.node-version }}-${{ hashFiles('package-lock.json') }}
+            npm-${{ matrix.node-version }}-
+            npm-
+
+      - name: Build and test
+        shell: bash
+        run: |
+          npm install --ignore-scripts --pure-lockfile
+          npm run build --if-present
+          npm run test --if-present
+        env:
+          CI: true
